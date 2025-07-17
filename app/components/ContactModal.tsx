@@ -1,9 +1,14 @@
 'use client'
 
 import React, { useState, useEffect } from 'react'
-import { X, Mail, Phone, User, MessageCircle, BookOpen, Send, CheckCircle } from 'lucide-react'
+import { X, Mail, Phone, User, MessageCircle, BookOpen, Send, CheckCircle, Loader2 } from 'lucide-react'
 import { parsePhoneNumberFromString, isValidPhoneNumber } from 'libphonenumber-js'
-import { GoogleReCaptchaProvider, useGoogleReCaptcha } from 'react-google-recaptcha-v3'
+import dynamic from 'next/dynamic'
+
+// Importar ReCAPTCHA de forma dinámica
+const ReCAPTCHA = dynamic(() => import('react-google-recaptcha'), {
+  ssr: false,
+})
 
 interface ContactModalProps {
   isOpen: boolean
@@ -28,8 +33,7 @@ interface FormErrors {
   mensaje?: string
 }
 
-const ContactModalContent: React.FC<ContactModalProps> = ({ isOpen, onClose, selectedCourse }) => {
-  const { executeRecaptcha } = useGoogleReCaptcha()
+const ContactModal: React.FC<ContactModalProps> = ({ isOpen, onClose, selectedCourse }) => {
   const [formData, setFormData] = useState({
     nombre: '',
     email: '',
@@ -41,6 +45,8 @@ const ContactModalContent: React.FC<ContactModalProps> = ({ isOpen, onClose, sel
   const [formErrors, setFormErrors] = useState<FormErrors>({})
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [isSubmitted, setIsSubmitted] = useState(false)
+  const [captchaToken, setCaptchaToken] = useState<string | null>(null)
+  const [submitError, setSubmitError] = useState<string | null>(null)
 
   useEffect(() => {
     if (selectedCourse) {
@@ -104,7 +110,9 @@ const ContactModalContent: React.FC<ContactModalProps> = ({ isOpen, onClose, sel
     }
 
     // Validación del mensaje
-    if (formData.mensaje.trim()) {
+    if (!formData.mensaje.trim()) {
+      errors.mensaje = 'Por favor ingresa un mensaje'
+    } else {
       const mensajeTrimmed = formData.mensaje.trim()
       if (mensajeTrimmed.length < 10) {
         errors.mensaje = 'El mensaje debe tener al menos 10 caracteres'
@@ -113,6 +121,11 @@ const ContactModalContent: React.FC<ContactModalProps> = ({ isOpen, onClose, sel
       } else if (!/^[a-zA-Z0-9áéíóúñÁÉÍÓÚÑ\s.,;:¿?¡!@#$%&*()-_]{10,500}$/.test(mensajeTrimmed)) {
         errors.mensaje = 'El mensaje contiene caracteres no permitidos'
       }
+    }
+
+    // Validación del captcha
+    if (!captchaToken) {
+      errors.mensaje = 'Por favor completa el captcha'
     }
 
     setFormErrors(errors)
@@ -140,6 +153,7 @@ const ContactModalContent: React.FC<ContactModalProps> = ({ isOpen, onClose, sel
     }
 
     setFormData(prev => ({ ...prev, [name]: newValue }))
+    setSubmitError(null)
     
     // Limpiar error del campo cuando el usuario empieza a escribir
     if (formErrors[name as keyof FormErrors]) {
@@ -164,6 +178,7 @@ const ContactModalContent: React.FC<ContactModalProps> = ({ isOpen, onClose, sel
   const handlePhoneChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const formattedNumber = formatPhoneNumber(e.target.value)
     setFormData(prev => ({ ...prev, telefono: formattedNumber }))
+    setSubmitError(null)
     
     // Limpiar error cuando el usuario empieza a escribir
     if (formErrors.telefono) {
@@ -173,28 +188,41 @@ const ContactModalContent: React.FC<ContactModalProps> = ({ isOpen, onClose, sel
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
+    setSubmitError(null)
     
     if (!validateForm()) {
-      return
-    }
-
-    if (!executeRecaptcha) {
-      console.error('Execute recaptcha not yet available')
       return
     }
 
     setIsSubmitting(true)
 
     try {
-      // Verificar reCAPTCHA
-      const token = await executeRecaptcha('contactForm')
-      
-      // Aquí iría la lógica de envío del formulario al backend
-      // incluyendo el token de reCAPTCHA para verificación
-      await new Promise(resolve => setTimeout(resolve, 2000))
+      const response = await fetch('/api/contact/course', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          name: formData.nombre,
+          email: formData.email,
+          phone: formData.telefono,
+          company: formData.empresa,
+          courseInterest: formData.curso,
+          message: formData.mensaje,
+          captchaToken,
+          timestamp: new Date().toISOString()
+        }),
+      })
+
+      const data = await response.json()
+
+      if (!response.ok) {
+        throw new Error(data.message || 'Error al enviar el formulario')
+      }
       
       setIsSubmitting(false)
       setIsSubmitted(true)
+      setCaptchaToken(null)
 
       // Resetear después de 3 segundos
       setTimeout(() => {
@@ -212,6 +240,7 @@ const ContactModalContent: React.FC<ContactModalProps> = ({ isOpen, onClose, sel
     } catch (error) {
       console.error('Error al enviar el formulario:', error)
       setIsSubmitting(false)
+      setSubmitError(error instanceof Error ? error.message : 'Error al enviar el formulario')
     }
   }
 
@@ -224,13 +253,13 @@ const ContactModalContent: React.FC<ContactModalProps> = ({ isOpen, onClose, sel
         onClick={onClose}
       />
       
-      <div className="flex min-h-full items-center justify-center p-4">
-        <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-lg transform transition-all duration-300 scale-100">
-          <div className="bg-gradient-to-r from-primary-600 to-primary-700 rounded-t-2xl p-6 text-white">
+      <div className="flex min-h-full items-center justify-center p-4 sm:p-6">
+        <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-2xl transform transition-all duration-300 scale-100">
+          <div className="bg-gradient-to-r from-primary-600 to-primary-700 rounded-t-2xl p-6 sm:p-8 text-white">
             <div className="flex items-center justify-between">
               <div>
-                <h3 className="text-2xl font-bold">Solicitar Información</h3>
-                <p className="text-primary-100 mt-1">Te contactaremos a la brevedad</p>
+                <h3 className="text-2xl sm:text-3xl font-bold">Solicitar Información</h3>
+                <p className="text-primary-100 mt-2 text-lg">Te contactaremos a la brevedad</p>
               </div>
               <button
                 onClick={onClose}
@@ -241,206 +270,174 @@ const ContactModalContent: React.FC<ContactModalProps> = ({ isOpen, onClose, sel
             </div>
           </div>
 
-          <div className="p-6">
+          <div className="p-6 sm:p-8">
             {isSubmitted ? (
               <div className="text-center py-8">
                 <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
                   <CheckCircle className="w-8 h-8 text-green-600" />
                 </div>
                 <h4 className="text-xl font-bold text-gray-900 mb-2">¡Mensaje Enviado!</h4>
-                <p className="text-gray-600">
-                  Hemos recibido tu solicitud. Nos contactaremos contigo dentro de las próximas 24 horas.
-                </p>
+                <p className="text-gray-600">Nos pondremos en contacto contigo pronto.</p>
               </div>
             ) : (
               <form onSubmit={handleSubmit} className="space-y-4">
-                {/* Nombre */}
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    <User className="w-4 h-4 inline mr-2" />
-                    Nombre Completo *
-                  </label>
-                  <input
-                    type="text"
-                    name="nombre"
-                    value={formData.nombre}
-                    onChange={handleInputChange}
-                    required
-                    className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-all duration-200 ${
-                      formErrors.nombre ? 'border-red-500' : 'border-gray-300'
-                    }`}
-                    placeholder="Ingresa tu nombre y apellido"
-                  />
+                  <div className="relative">
+                    <User className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+                    <input
+                      type="text"
+                      name="nombre"
+                      value={formData.nombre}
+                      onChange={handleInputChange}
+                      placeholder="Nombre y Apellido"
+                      className={`w-full pl-10 pr-4 py-3 rounded-lg border ${
+                        formErrors.nombre ? 'border-red-500' : 'border-gray-300'
+                      } focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent`}
+                    />
+                  </div>
                   {formErrors.nombre && (
-                    <p className="mt-1 text-sm text-red-600">{formErrors.nombre}</p>
+                    <p className="mt-1 text-sm text-red-500">{formErrors.nombre}</p>
                   )}
                 </div>
 
-                {/* Email */}
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    <Mail className="w-4 h-4 inline mr-2" />
-                    Correo Electrónico *
-                  </label>
-                  <input
-                    type="email"
-                    name="email"
-                    value={formData.email}
-                    onChange={handleInputChange}
-                    required
-                    className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-all duration-200 ${
-                      formErrors.email ? 'border-red-500' : 'border-gray-300'
-                    }`}
-                    placeholder="tu@email.com"
-                  />
+                  <div className="relative">
+                    <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+                    <input
+                      type="email"
+                      name="email"
+                      value={formData.email}
+                      onChange={handleInputChange}
+                      placeholder="Email"
+                      className={`w-full pl-10 pr-4 py-3 rounded-lg border ${
+                        formErrors.email ? 'border-red-500' : 'border-gray-300'
+                      } focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent`}
+                    />
+                  </div>
                   {formErrors.email && (
-                    <p className="mt-1 text-sm text-red-600">{formErrors.email}</p>
+                    <p className="mt-1 text-sm text-red-500">{formErrors.email}</p>
                   )}
                 </div>
 
-                {/* Teléfono */}
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    <Phone className="w-4 h-4 inline mr-2" />
-                    Teléfono *
-                  </label>
-                  <input
-                    type="tel"
-                    name="telefono"
-                    value={formData.telefono}
-                    onChange={handlePhoneChange}
-                    required
-                    className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-all duration-200 ${
-                      formErrors.telefono ? 'border-red-500' : 'border-gray-300'
-                    }`}
-                    placeholder="+56 9 XXXX XXXX"
-                  />
+                  <div className="relative">
+                    <Phone className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+                    <input
+                      type="tel"
+                      name="telefono"
+                      value={formData.telefono}
+                      onChange={handlePhoneChange}
+                      placeholder="+56 9 XXXX XXXX"
+                      className={`w-full pl-10 pr-4 py-3 rounded-lg border ${
+                        formErrors.telefono ? 'border-red-500' : 'border-gray-300'
+                      } focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent`}
+                    />
+                  </div>
                   {formErrors.telefono && (
-                    <p className="mt-1 text-sm text-red-600">{formErrors.telefono}</p>
+                    <p className="mt-1 text-sm text-red-500">{formErrors.telefono}</p>
                   )}
                 </div>
 
-                {/* Empresa */}
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Empresa u Organización
-                  </label>
-                  <input
-                    type="text"
-                    name="empresa"
-                    value={formData.empresa}
-                    onChange={handleInputChange}
-                    className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-all duration-200 ${
-                      formErrors.empresa ? 'border-red-500' : 'border-gray-300'
-                    }`}
-                    placeholder="Nombre de tu empresa (opcional)"
-                  />
+                  <div className="relative">
+                    <BookOpen className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+                    <input
+                      type="text"
+                      name="empresa"
+                      value={formData.empresa}
+                      onChange={handleInputChange}
+                      placeholder="Empresa (opcional)"
+                      className={`w-full pl-10 pr-4 py-3 rounded-lg border ${
+                        formErrors.empresa ? 'border-red-500' : 'border-gray-300'
+                      } focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent`}
+                    />
+                  </div>
                   {formErrors.empresa && (
-                    <p className="mt-1 text-sm text-red-600">{formErrors.empresa}</p>
+                    <p className="mt-1 text-sm text-red-500">{formErrors.empresa}</p>
                   )}
                 </div>
 
-                {/* Curso */}
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    <BookOpen className="w-4 h-4 inline mr-2" />
-                    Curso de Interés *
-                  </label>
-                  <select
-                    name="curso"
-                    value={formData.curso}
-                    onChange={handleInputChange}
-                    required
-                    className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-all duration-200 ${
-                      formErrors.curso ? 'border-red-500' : 'border-gray-300'
-                    }`}
-                  >
-                    <option value="">Selecciona un curso</option>
-                    {cursos.map((curso, index) => (
-                      <option key={index} value={curso}>
-                        {curso}
-                      </option>
-                    ))}
-                  </select>
+                  <div className="relative">
+                    <select
+                      name="curso"
+                      value={formData.curso}
+                      onChange={handleInputChange}
+                      className={`w-full px-4 py-3 rounded-lg border ${
+                        formErrors.curso ? 'border-red-500' : 'border-gray-300'
+                      } focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent bg-white`}
+                    >
+                      <option value="">Selecciona un curso</option>
+                      {cursos.map((curso, index) => (
+                        <option key={index} value={curso}>{curso}</option>
+                      ))}
+                    </select>
+                  </div>
                   {formErrors.curso && (
-                    <p className="mt-1 text-sm text-red-600">{formErrors.curso}</p>
+                    <p className="mt-1 text-sm text-red-500">{formErrors.curso}</p>
                   )}
                 </div>
 
-                {/* Mensaje */}
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    <MessageCircle className="w-4 h-4 inline mr-2" />
-                    Mensaje Adicional
-                  </label>
-                  <textarea
-                    name="mensaje"
-                    value={formData.mensaje}
-                    onChange={handleInputChange}
-                    rows={4}
-                    className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-all duration-200 resize-none ${
-                      formErrors.mensaje ? 'border-red-500' : 'border-gray-300'
-                    }`}
-                    placeholder="Cuéntanos más sobre tus necesidades de capacitación..."
-                  />
+                  <div className="relative">
+                    <MessageCircle className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+                    <textarea
+                      name="mensaje"
+                      value={formData.mensaje}
+                      onChange={handleInputChange}
+                      placeholder="Mensaje"
+                      rows={5}
+                      className={`w-full pl-10 pr-4 py-3 rounded-lg border ${
+                        formErrors.mensaje ? 'border-red-500' : 'border-gray-300'
+                      } focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent resize-none`}
+                    />
+                  </div>
                   {formErrors.mensaje && (
-                    <p className="mt-1 text-sm text-red-600">{formErrors.mensaje}</p>
+                    <p className="mt-1 text-sm text-red-500">{formErrors.mensaje}</p>
                   )}
-                  <p className="mt-1 text-sm text-gray-500">
-                    {formData.mensaje.length}/500 caracteres
-                  </p>
                 </div>
 
-                {/* Botones */}
-                <div className="flex gap-3 pt-4">
-                  <button
-                    type="button"
-                    onClick={onClose}
-                    className="flex-1 px-4 py-3 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors duration-200 font-medium"
-                  >
-                    Cancelar
-                  </button>
-                  <button
-                    type="submit"
-                    disabled={isSubmitting}
-                    className="flex-1 bg-gradient-to-r from-primary-600 to-primary-700 hover:from-primary-700 hover:to-primary-800 text-white px-4 py-3 rounded-lg font-medium transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center"
-                  >
-                    {isSubmitting ? (
-                      <>
-                        <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
-                        Enviando...
-                      </>
-                    ) : (
-                      <>
-                        <Send className="w-4 h-4 mr-2" />
-                        Enviar Solicitud
-                      </>
-                    )}
-                  </button>
+                <div className="flex justify-center">
+                  {typeof window !== 'undefined' && (
+                    <ReCAPTCHA
+                      sitekey="6LeIxAcTAAAAAJcZVRqyHh71UMIEGNQ_MXjiZKhI"
+                      onChange={(token) => {
+                        setCaptchaToken(token)
+                        setFormErrors(prev => ({ ...prev, mensaje: undefined }))
+                      }}
+                    />
+                  )}
                 </div>
+
+                {submitError && (
+                  <div className="text-center text-red-500 text-sm">
+                    {submitError}
+                  </div>
+                )}
+
+                <button
+                  type="submit"
+                  disabled={isSubmitting}
+                  className="w-full bg-gradient-to-r from-primary-600 to-primary-700 hover:from-primary-700 hover:to-primary-800 text-white font-semibold py-3 px-6 rounded-lg transition-all duration-300 flex items-center justify-center disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {isSubmitting ? (
+                    <>
+                      <Loader2 className="w-5 h-5 mr-2 animate-spin" />
+                      Enviando...
+                    </>
+                  ) : (
+                    <>
+                      <Send className="w-5 h-5 mr-2" />
+                      Enviar Mensaje
+                    </>
+                  )}
+                </button>
               </form>
             )}
           </div>
         </div>
       </div>
     </div>
-  )
-}
-
-// Componente envoltorio con el provider de reCAPTCHA
-const ContactModal: React.FC<ContactModalProps> = (props) => {
-  return (
-    <GoogleReCaptchaProvider
-      reCaptchaKey="TU_CLAVE_PUBLICA_RECAPTCHA"
-      scriptProps={{
-        async: false,
-        defer: false,
-        appendTo: 'head',
-        nonce: undefined,
-      }}
-    >
-      <ContactModalContent {...props} />
-    </GoogleReCaptchaProvider>
   )
 }
 
