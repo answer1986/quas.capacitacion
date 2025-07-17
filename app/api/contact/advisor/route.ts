@@ -49,7 +49,7 @@ export async function POST(request: Request) {
     }
 
     // Guardar contacto
-    const result = addAdvisorContact({
+    const result = await addAdvisorContact({
       name,
       email,
       phone,

@@ -32,7 +32,7 @@ export async function POST(request: Request) {
     }
 
     // Guardar contacto
-    const result = addCourseContact({
+    const result = await addCourseContact({
       name,
       email,
       phone,

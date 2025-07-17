@@ -36,7 +36,8 @@ export async function POST(request: Request) {
     }
 
     // Verificar si el email ya existe
-    if (checkEmailExists(email)) {
+    const emailExists = await checkEmailExists(email)
+    if (emailExists) {
       return NextResponse.json(
         { message: 'Este email ya está suscrito' },
         { status: 400 }
@@ -44,7 +45,7 @@ export async function POST(request: Request) {
     }
 
     // Insertar nuevo suscriptor
-    const result = addSubscriber(email, timestamp)
+    const result = await addSubscriber(email, timestamp)
 
     if (!result.success) {
       throw new Error(result.error)
