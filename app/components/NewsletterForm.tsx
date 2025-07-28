@@ -1,8 +1,13 @@
 'use client'
 
 import React, { useState } from 'react'
-import ReCAPTCHA from "react-google-recaptcha"
 import { Loader2 } from 'lucide-react'
+import dynamic from 'next/dynamic'
+
+// Importar ReCAPTCHA de forma dinámica
+const ReCAPTCHA = dynamic(() => import('react-google-recaptcha'), {
+  ssr: false,
+})
 
 interface NewsletterFormProps {
   className?: string
@@ -67,11 +72,13 @@ export default function NewsletterForm({ className }: NewsletterFormProps) {
           />
           
           <div className="flex justify-center">
-            <ReCAPTCHA
-              sitekey={process.env.NEXT_PUBLIC_RECAPTCHA_SITE_KEY || ''}
-              onChange={(token) => setCaptchaToken(token)}
-              theme="dark"
-            />
+            {typeof window !== 'undefined' && (
+              <ReCAPTCHA
+                sitekey={process.env.NEXT_PUBLIC_RECAPTCHA_SITE_KEY || '6LeIxAcTAAAAAJcZVRqyHh71UMIEGNQ_MXjiZKhI'}
+                onChange={(token) => setCaptchaToken(token)}
+                theme="dark"
+              />
+            )}
           </div>
           
           <button 

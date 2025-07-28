@@ -3,7 +3,12 @@
 import React, { useState, useEffect } from 'react'
 import { X, Mail, Phone, User, Send, CheckCircle } from 'lucide-react'
 import { parsePhoneNumberFromString, isValidPhoneNumber } from 'libphonenumber-js'
-import { GoogleReCaptchaProvider, useGoogleReCaptcha } from 'react-google-recaptcha-v3'
+import dynamic from 'next/dynamic'
+
+// Importar ReCAPTCHA de forma dinámica
+const ReCAPTCHA = dynamic(() => import('react-google-recaptcha'), {
+  ssr: false,
+})
 
 interface ContactAdvisorModalProps {
   isOpen: boolean
@@ -16,8 +21,7 @@ interface FormErrors {
   telefono?: string
 }
 
-const ContactAdvisorModalContent: React.FC<ContactAdvisorModalProps> = ({ isOpen, onClose }) => {
-  const { executeRecaptcha } = useGoogleReCaptcha()
+const ContactAdvisorModal: React.FC<ContactAdvisorModalProps> = ({ isOpen, onClose }) => {
   const [formData, setFormData] = useState({
     nombre: '',
     email: '',
@@ -26,6 +30,8 @@ const ContactAdvisorModalContent: React.FC<ContactAdvisorModalProps> = ({ isOpen
   const [formErrors, setFormErrors] = useState<FormErrors>({})
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [isSubmitted, setIsSubmitted] = useState(false)
+  const [captchaToken, setCaptchaToken] = useState<string | null>(null)
+  const [submitError, setSubmitError] = useState<string | null>(null)
 
   useEffect(() => {
     if (isOpen) {
@@ -67,6 +73,12 @@ const ContactAdvisorModalContent: React.FC<ContactAdvisorModalProps> = ({ isOpen
       errors.telefono = 'Por favor ingresa un número de teléfono válido'
     }
 
+    // Validación del captcha
+    if (!captchaToken) {
+      setSubmitError('Por favor, completa el captcha')
+      return false
+    }
+
     setFormErrors(errors)
     return Object.keys(errors).length === 0
   }
@@ -100,14 +112,13 @@ const ContactAdvisorModalContent: React.FC<ContactAdvisorModalProps> = ({ isOpen
         .replace(/(\d{4})(\d{4})$/, '$1 $2')
     }
     
-    return numbers
+    return value
   }
 
   const handlePhoneChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const formattedNumber = formatPhoneNumber(e.target.value)
-    setFormData(prev => ({ ...prev, telefono: formattedNumber }))
+    const formattedValue = formatPhoneNumber(e.target.value)
+    setFormData(prev => ({ ...prev, telefono: formattedValue }))
     
-    // Limpiar error cuando el usuario empieza a escribir
     if (formErrors.telefono) {
       setFormErrors(prev => ({ ...prev, telefono: undefined }))
     }
@@ -115,41 +126,40 @@ const ContactAdvisorModalContent: React.FC<ContactAdvisorModalProps> = ({ isOpen
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
+    setSubmitError(null)
     
     if (!validateForm()) {
       return
     }
 
-    if (!executeRecaptcha) {
-      console.error('Execute recaptcha not yet available')
-      return
-    }
-
-    setIsSubmitting(true)
-
     try {
-      // Verificar reCAPTCHA
-      const token = await executeRecaptcha('advisorContactForm')
+      setIsSubmitting(true)
       
-      // Aquí iría la lógica de envío del formulario al backend
-      // incluyendo el token de reCAPTCHA para verificación
-      await new Promise(resolve => setTimeout(resolve, 2000))
-      
-      setIsSubmitting(false)
-      setIsSubmitted(true)
+      const response = await fetch('/api/contact/advisor', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          name: formData.nombre,
+          email: formData.email,
+          phone: formData.telefono,
+          captchaToken
+        }),
+      })
 
-      // Resetear después de 3 segundos
-      setTimeout(() => {
-        setIsSubmitted(false)
-        onClose()
-        setFormData({
-          nombre: '',
-          email: '',
-          telefono: ''
-        })
-      }, 3000)
+      const data = await response.json()
+
+      if (response.ok) {
+        setIsSubmitted(true)
+        setFormData({ nombre: '', email: '', telefono: '' })
+        setCaptchaToken(null)
+      } else {
+        throw new Error(data.message || 'Error al enviar la solicitud')
+      }
     } catch (error) {
-      console.error('Error al enviar el formulario:', error)
+      setSubmitError(error instanceof Error ? error.message : 'Error al enviar la solicitud')
+    } finally {
       setIsSubmitting(false)
     }
   }
@@ -157,158 +167,157 @@ const ContactAdvisorModalContent: React.FC<ContactAdvisorModalProps> = ({ isOpen
   if (!isOpen) return null
 
   return (
-    <div className="fixed inset-0 z-50 overflow-y-auto">
-      <div 
-        className="fixed inset-0 bg-black/60 backdrop-blur-sm transition-opacity duration-300"
-        onClick={onClose}
-      />
-      
-      <div className="flex min-h-full items-center justify-center p-4">
-        <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-lg transform transition-all duration-300 scale-100">
-          <div className="bg-gradient-to-r from-primary-600 to-primary-700 rounded-t-2xl p-6 text-white">
-            <div className="flex items-center justify-between">
-              <div>
-                <h3 className="text-2xl font-bold">Contactar con un Asesor</h3>
-                <p className="text-primary-100 mt-1">Te contactaremos a la brevedad</p>
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+      <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full max-h-[90vh] overflow-y-auto">
+        <div className="p-6">
+          <div className="flex items-center justify-between mb-6">
+            <div>
+              <h2 className="text-2xl font-bold text-gray-900">Contactar Asesor</h2>
+              <p className="text-gray-600 mt-1">Te contactaremos para brindarte asesoría personalizada</p>
+            </div>
+            <button
+              onClick={onClose}
+              className="text-gray-400 hover:text-gray-600 transition-colors duration-200"
+            >
+              <X className="w-6 h-6" />
+            </button>
+          </div>
+
+          {isSubmitted ? (
+            <div className="text-center py-8">
+              <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                <CheckCircle className="w-8 h-8 text-green-600" />
               </div>
+              <h3 className="text-xl font-semibold text-gray-900 mb-2">¡Solicitud Enviada!</h3>
+              <p className="text-gray-600 mb-6">
+                Nos pondremos en contacto contigo pronto para brindarte la asesoría que necesitas.
+              </p>
               <button
                 onClick={onClose}
-                className="p-2 hover:bg-white/10 rounded-lg transition-colors duration-200"
+                className="bg-gradient-to-r from-primary-600 to-primary-700 text-white px-6 py-3 rounded-lg font-medium transition-all duration-200 hover:from-primary-700 hover:to-primary-800"
               >
-                <X className="w-6 h-6" />
+                Cerrar
               </button>
             </div>
-          </div>
-
-          <div className="p-6">
-            {isSubmitted ? (
-              <div className="text-center py-8">
-                <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                  <CheckCircle className="w-8 h-8 text-green-600" />
-                </div>
-                <h4 className="text-xl font-bold text-gray-900 mb-2">¡Mensaje Enviado!</h4>
-                <p className="text-gray-600">
-                  Hemos recibido tu solicitud. Un asesor se contactará contigo dentro de las próximas 24 horas.
-                </p>
+          ) : (
+            <form onSubmit={handleSubmit} className="space-y-4">
+              {/* Nombre */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  <User className="w-4 h-4 inline mr-2" />
+                  Nombre Completo *
+                </label>
+                <input
+                  type="text"
+                  name="nombre"
+                  value={formData.nombre}
+                  onChange={handleInputChange}
+                  required
+                  className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-all duration-200 ${
+                    formErrors.nombre ? 'border-red-500' : 'border-gray-300'
+                  }`}
+                  placeholder="Nombre y Apellido"
+                />
+                {formErrors.nombre && (
+                  <p className="mt-1 text-sm text-red-600">{formErrors.nombre}</p>
+                )}
               </div>
-            ) : (
-              <form onSubmit={handleSubmit} className="space-y-4">
-                {/* Nombre */}
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    <User className="w-4 h-4 inline mr-2" />
-                    Nombre Completo *
-                  </label>
-                  <input
-                    type="text"
-                    name="nombre"
-                    value={formData.nombre}
-                    onChange={handleInputChange}
-                    required
-                    className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-all duration-200 ${
-                      formErrors.nombre ? 'border-red-500' : 'border-gray-300'
-                    }`}
-                    placeholder="Ingresa tu nombre y apellido"
-                  />
-                  {formErrors.nombre && (
-                    <p className="mt-1 text-sm text-red-600">{formErrors.nombre}</p>
-                  )}
-                </div>
 
-                {/* Email */}
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    <Mail className="w-4 h-4 inline mr-2" />
-                    Correo Electrónico *
-                  </label>
-                  <input
-                    type="email"
-                    name="email"
-                    value={formData.email}
-                    onChange={handleInputChange}
-                    required
-                    className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-all duration-200 ${
-                      formErrors.email ? 'border-red-500' : 'border-gray-300'
-                    }`}
-                    placeholder="tu@email.com"
-                  />
-                  {formErrors.email && (
-                    <p className="mt-1 text-sm text-red-600">{formErrors.email}</p>
-                  )}
-                </div>
+              {/* Email */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  <Mail className="w-4 h-4 inline mr-2" />
+                  Correo Electrónico *
+                </label>
+                <input
+                  type="email"
+                  name="email"
+                  value={formData.email}
+                  onChange={handleInputChange}
+                  required
+                  className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-all duration-200 ${
+                    formErrors.email ? 'border-red-500' : 'border-gray-300'
+                  }`}
+                  placeholder="tu@email.com"
+                />
+                {formErrors.email && (
+                  <p className="mt-1 text-sm text-red-600">{formErrors.email}</p>
+                )}
+              </div>
 
-                {/* Teléfono */}
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    <Phone className="w-4 h-4 inline mr-2" />
-                    Teléfono *
-                  </label>
-                  <input
-                    type="tel"
-                    name="telefono"
-                    value={formData.telefono}
-                    onChange={handlePhoneChange}
-                    required
-                    className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-all duration-200 ${
-                      formErrors.telefono ? 'border-red-500' : 'border-gray-300'
-                    }`}
-                    placeholder="+56 9 XXXX XXXX"
-                  />
-                  {formErrors.telefono && (
-                    <p className="mt-1 text-sm text-red-600">{formErrors.telefono}</p>
-                  )}
-                </div>
+              {/* Teléfono */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  <Phone className="w-4 h-4 inline mr-2" />
+                  Teléfono *
+                </label>
+                <input
+                  type="tel"
+                  name="telefono"
+                  value={formData.telefono}
+                  onChange={handlePhoneChange}
+                  required
+                  className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-all duration-200 ${
+                    formErrors.telefono ? 'border-red-500' : 'border-gray-300'
+                  }`}
+                  placeholder="+56 9 XXXX XXXX"
+                />
+                {formErrors.telefono && (
+                  <p className="mt-1 text-sm text-red-600">{formErrors.telefono}</p>
+                )}
+              </div>
 
-                {/* Botones */}
-                <div className="flex gap-3 pt-4">
-                  <button
-                    type="button"
-                    onClick={onClose}
-                    className="flex-1 px-4 py-3 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors duration-200 font-medium"
-                  >
-                    Cancelar
-                  </button>
-                  <button
-                    type="submit"
-                    disabled={isSubmitting}
-                    className="flex-1 bg-gradient-to-r from-primary-600 to-primary-700 hover:from-primary-700 hover:to-primary-800 text-white px-4 py-3 rounded-lg font-medium transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center"
-                  >
-                    {isSubmitting ? (
-                      <>
-                        <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
-                        Enviando...
-                      </>
-                    ) : (
-                      <>
-                        <Send className="w-4 h-4 mr-2" />
-                        Enviar Solicitud
-                      </>
-                    )}
-                  </button>
+              {/* reCAPTCHA */}
+              <div className="flex justify-center">
+                {typeof window !== 'undefined' && (
+                  <ReCAPTCHA
+                    sitekey={process.env.NEXT_PUBLIC_RECAPTCHA_SITE_KEY || '6LeIxAcTAAAAAJcZVRqyHh71UMIEGNQ_MXjiZKhI'}
+                    onChange={(token) => {
+                      setCaptchaToken(token)
+                      setSubmitError(null)
+                    }}
+                  />
+                )}
+              </div>
+
+              {submitError && (
+                <div className="text-center text-red-500 text-sm">
+                  {submitError}
                 </div>
-              </form>
-            )}
-          </div>
+              )}
+
+              {/* Botones */}
+              <div className="flex gap-3 pt-4">
+                <button
+                  type="button"
+                  onClick={onClose}
+                  className="flex-1 px-4 py-3 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors duration-200 font-medium"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="submit"
+                  disabled={isSubmitting}
+                  className="flex-1 bg-gradient-to-r from-primary-600 to-primary-700 hover:from-primary-700 hover:to-primary-800 text-white px-4 py-3 rounded-lg font-medium transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center"
+                >
+                  {isSubmitting ? (
+                    <>
+                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                      Enviando...
+                    </>
+                  ) : (
+                    <>
+                      <Send className="w-4 h-4 mr-2" />
+                      Enviar Solicitud
+                    </>
+                  )}
+                </button>
+              </div>
+            </form>
+          )}
         </div>
       </div>
     </div>
-  )
-}
-
-// Componente envoltorio con el provider de reCAPTCHA
-const ContactAdvisorModal: React.FC<ContactAdvisorModalProps> = (props) => {
-  return (
-    <GoogleReCaptchaProvider
-      reCaptchaKey="TU_CLAVE_PUBLICA_RECAPTCHA"
-      scriptProps={{
-        async: false,
-        defer: false,
-        appendTo: 'head',
-        nonce: undefined,
-      }}
-    >
-      <ContactAdvisorModalContent {...props} />
-    </GoogleReCaptchaProvider>
   )
 }
 

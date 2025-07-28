@@ -284,16 +284,16 @@ const ContactModal: React.FC<ContactModalProps> = ({ isOpen, onClose, selectedCo
                 <div>
                   <div className="relative">
                     <User className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
-                    <input
-                      type="text"
-                      name="nombre"
-                      value={formData.nombre}
-                      onChange={handleInputChange}
+                  <input
+                    type="text"
+                    name="nombre"
+                    value={formData.nombre}
+                    onChange={handleInputChange}
                       placeholder="Nombre y Apellido"
                       className={`w-full pl-10 pr-4 py-3 rounded-lg border ${
-                        formErrors.nombre ? 'border-red-500' : 'border-gray-300'
+                      formErrors.nombre ? 'border-red-500' : 'border-gray-300'
                       } focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent`}
-                    />
+                  />
                   </div>
                   {formErrors.nombre && (
                     <p className="mt-1 text-sm text-red-500">{formErrors.nombre}</p>
@@ -303,16 +303,16 @@ const ContactModal: React.FC<ContactModalProps> = ({ isOpen, onClose, selectedCo
                 <div>
                   <div className="relative">
                     <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
-                    <input
-                      type="email"
-                      name="email"
-                      value={formData.email}
-                      onChange={handleInputChange}
+                  <input
+                    type="email"
+                    name="email"
+                    value={formData.email}
+                    onChange={handleInputChange}
                       placeholder="Email"
                       className={`w-full pl-10 pr-4 py-3 rounded-lg border ${
-                        formErrors.email ? 'border-red-500' : 'border-gray-300'
+                      formErrors.email ? 'border-red-500' : 'border-gray-300'
                       } focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent`}
-                    />
+                  />
                   </div>
                   {formErrors.email && (
                     <p className="mt-1 text-sm text-red-500">{formErrors.email}</p>
@@ -322,16 +322,16 @@ const ContactModal: React.FC<ContactModalProps> = ({ isOpen, onClose, selectedCo
                 <div>
                   <div className="relative">
                     <Phone className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
-                    <input
-                      type="tel"
-                      name="telefono"
-                      value={formData.telefono}
-                      onChange={handlePhoneChange}
+                  <input
+                    type="tel"
+                    name="telefono"
+                    value={formData.telefono}
+                    onChange={handlePhoneChange}
                       placeholder="+56 9 XXXX XXXX"
                       className={`w-full pl-10 pr-4 py-3 rounded-lg border ${
-                        formErrors.telefono ? 'border-red-500' : 'border-gray-300'
+                      formErrors.telefono ? 'border-red-500' : 'border-gray-300'
                       } focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent`}
-                    />
+                  />
                   </div>
                   {formErrors.telefono && (
                     <p className="mt-1 text-sm text-red-500">{formErrors.telefono}</p>
@@ -341,16 +341,16 @@ const ContactModal: React.FC<ContactModalProps> = ({ isOpen, onClose, selectedCo
                 <div>
                   <div className="relative">
                     <BookOpen className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
-                    <input
-                      type="text"
-                      name="empresa"
-                      value={formData.empresa}
-                      onChange={handleInputChange}
+                  <input
+                    type="text"
+                    name="empresa"
+                    value={formData.empresa}
+                    onChange={handleInputChange}
                       placeholder="Empresa (opcional)"
                       className={`w-full pl-10 pr-4 py-3 rounded-lg border ${
-                        formErrors.empresa ? 'border-red-500' : 'border-gray-300'
+                      formErrors.empresa ? 'border-red-500' : 'border-gray-300'
                       } focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent`}
-                    />
+                  />
                   </div>
                   {formErrors.empresa && (
                     <p className="mt-1 text-sm text-red-500">{formErrors.empresa}</p>
@@ -359,19 +359,19 @@ const ContactModal: React.FC<ContactModalProps> = ({ isOpen, onClose, selectedCo
 
                 <div>
                   <div className="relative">
-                    <select
-                      name="curso"
-                      value={formData.curso}
-                      onChange={handleInputChange}
+                  <select
+                    name="curso"
+                    value={formData.curso}
+                    onChange={handleInputChange}
                       className={`w-full px-4 py-3 rounded-lg border ${
-                        formErrors.curso ? 'border-red-500' : 'border-gray-300'
+                      formErrors.curso ? 'border-red-500' : 'border-gray-300'
                       } focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent bg-white`}
-                    >
-                      <option value="">Selecciona un curso</option>
-                      {cursos.map((curso, index) => (
+                  >
+                    <option value="">Selecciona un curso</option>
+                    {cursos.map((curso, index) => (
                         <option key={index} value={curso}>{curso}</option>
-                      ))}
-                    </select>
+                    ))}
+                  </select>
                   </div>
                   {formErrors.curso && (
                     <p className="mt-1 text-sm text-red-500">{formErrors.curso}</p>
@@ -381,16 +381,16 @@ const ContactModal: React.FC<ContactModalProps> = ({ isOpen, onClose, selectedCo
                 <div>
                   <div className="relative">
                     <MessageCircle className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
-                    <textarea
-                      name="mensaje"
-                      value={formData.mensaje}
-                      onChange={handleInputChange}
+                  <textarea
+                    name="mensaje"
+                    value={formData.mensaje}
+                    onChange={handleInputChange}
                       placeholder="Mensaje"
                       rows={5}
                       className={`w-full pl-10 pr-4 py-3 rounded-lg border ${
-                        formErrors.mensaje ? 'border-red-500' : 'border-gray-300'
+                      formErrors.mensaje ? 'border-red-500' : 'border-gray-300'
                       } focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent resize-none`}
-                    />
+                  />
                   </div>
                   {formErrors.mensaje && (
                     <p className="mt-1 text-sm text-red-500">{formErrors.mensaje}</p>
@@ -400,7 +400,7 @@ const ContactModal: React.FC<ContactModalProps> = ({ isOpen, onClose, selectedCo
                 <div className="flex justify-center">
                   {typeof window !== 'undefined' && (
                     <ReCAPTCHA
-                      sitekey="6LeIxAcTAAAAAJcZVRqyHh71UMIEGNQ_MXjiZKhI"
+                      sitekey={process.env.NEXT_PUBLIC_RECAPTCHA_SITE_KEY || '6LeIxAcTAAAAAJcZVRqyHh71UMIEGNQ_MXjiZKhI'}
                       onChange={(token) => {
                         setCaptchaToken(token)
                         setFormErrors(prev => ({ ...prev, mensaje: undefined }))
@@ -415,23 +415,23 @@ const ContactModal: React.FC<ContactModalProps> = ({ isOpen, onClose, selectedCo
                   </div>
                 )}
 
-                <button
-                  type="submit"
-                  disabled={isSubmitting}
+                  <button
+                    type="submit"
+                    disabled={isSubmitting}
                   className="w-full bg-gradient-to-r from-primary-600 to-primary-700 hover:from-primary-700 hover:to-primary-800 text-white font-semibold py-3 px-6 rounded-lg transition-all duration-300 flex items-center justify-center disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  {isSubmitting ? (
-                    <>
+                  >
+                    {isSubmitting ? (
+                      <>
                       <Loader2 className="w-5 h-5 mr-2 animate-spin" />
-                      Enviando...
-                    </>
-                  ) : (
-                    <>
+                        Enviando...
+                      </>
+                    ) : (
+                      <>
                       <Send className="w-5 h-5 mr-2" />
                       Enviar Mensaje
-                    </>
-                  )}
-                </button>
+                      </>
+                    )}
+                  </button>
               </form>
             )}
           </div>
